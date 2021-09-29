@@ -1,0 +1,20 @@
+Summary for MK012
+Total Aligned Reads: 349M
+Total Unique Reads: 80M (23%)
+Aligned Median: 2,317,375
+Aligned Range: 137,502 - 27,714,910
+Percent Unique > 80% Dropouts: 
+Low Read Dropouts: 
+Expected negatives to be removed: 
+Probes Detected at least once: 18,120
+18,121 Probes listed in expected file.
+Range of Median Counts: 0 - 25,109
+Median Counts for Genes: 3
+Median Counts for NegProbe-GKP1: 1
+Median Counts for NegProbe-GKP2: 1
+32 Low Count Probes Removed from Analysis
+1076 Frequent Outlier Probes Removed from Analysis
+94 Samples out of 94 had at least one target with expression significantly different from negative controls. Based on a threshold of 2 geometric standard deviations above the negative geometric mean.
+Median Significant Count: 682.5
+Max Significant Count: 1397
+Min Significant Count: 5

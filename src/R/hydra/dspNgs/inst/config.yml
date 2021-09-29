@@ -1,0 +1,384 @@
+default:
+  output_dir: "./"
+  grouping_var: "NULL"
+  color_genes: "Blues"
+  color_samples: "Oranges"
+  color_grouping: "Yellows"
+
+user_options:
+
+  #***** GENERAL *****
+
+  #mouse and human are currently the only valid species
+  species: "human"
+
+  #***** FILE PATHS *****
+
+  #path to output directory from location where DSP_hydra.R script is
+  output_dir: "./"
+
+  #output directory name
+  output_name: "Hydra_Output"
+
+  #path to Azorius output folder with .txt files or excel file
+  #from location where DSP_hydra.R script is
+  data_path: "./testData/TEST_Hydra_data"
+
+  #are the files .txt: TRUE or FALSE
+  #set to FALSE for DSP-DA outputs
+  txt: TRUE
+
+  #required raw collapsed counts .xlsx file name from DSP-DA v2.0+
+  #parameter ignored if txt set to TRUE
+  DA_raw: NULL
+
+  #required normalized data .xlsx file name from DSP-DA v2.0+
+  #parameter ignored if txt set to TRUE
+  DA_norm: NULL
+
+  #file type images should be output as
+  #options: png, svg, tiff, pdf, bmp, jpeg
+  fileType: "tiff"
+
+  #file path to RData file if you have run the pipeline before
+  #and want to start with the same workspace
+  #if no RData put NULL
+  RData_path: NULL
+
+
+  #***** NORMALIZATION *****
+
+  #chosen list of hk genes (should be the same as what you selected in azorious)
+  hk_genes: c('C1orf43','GPI','OAZ1','POLR2A','PSMB2','RAB7A','SDHA','SNRPD3','TBC1D10B','TPM4','TUBB','UBB')
+
+  #chosen normalization factor, options: Q3, HK, Neg
+  #for DSP-DA, indicate what normalization method used in DSP-DA
+  norm_method: "Q3"
+
+  #threshold of correlation (R) between negative probe counts and gene counts
+  #decimal value between 0-1
+  #if you don't want to remove low outliers set to value above 1
+  thresh: 0.9
+
+  #genes with gene count mean x outlier_cutoff are removed
+  #if you don't want to remove high outliers set to extremely high number
+  outlier_cutoff: 5
+
+  #Genes below LOQ in at least this percent of AOIs are removed
+  #set to greater than 1 if you don't want to remove genes
+  #decimal value between 0-1
+  LOQ_cutoff: 0.7
+
+  #value for the stdev above LOQ
+  #output from azorius is 2.5
+  #for DSP-DA, this value is overwritten with
+  #"Standard deviation amount for the LOQ" reported in the Dataset Summary tab
+  LOQ_level: 2.0
+
+  #lowest allowable LOQ value.
+  #any values below this will get changed to this value
+  LOQ_floor: 2
+
+  #list of genes to remove from analysis
+  #format c("gene1", "gene2", ... ,"gene99")
+  #set as NULL or empty if not in use
+  rm_genes_list: NULL
+
+  #file path to txt file of genes to remove from analysis
+  #one gene per line
+  #if rm_gene_list is not NULL, list will be used as genes to remove
+  rm_genes_txt: NULL
+
+
+  #***** SEQUENCING QC *****
+
+  #sequencing saturation cutoff, meant as a visual warning if % sequencing saturation is low
+  #for a group of AOIs, creates violin plot split by this criteria
+  #samples below cutoff will output to txt file and to console as a warning
+  sat_cutoff: 50
+
+  #column in annotations (should be factor) indicating what to investigate saturation as a function of;
+  #SlideName, PlateID, etc. in a violin/box plot
+  sat_factcrit: "dsp_slide"
+
+  #column in annotations (numeric, looks best as continuous) indicating what to investigate saturation as a function of;
+  #AOISurfaceArea, AOINucleiCount, etc. in a scatterplot
+  sat_numcrit: "roi_area"
+
+
+  #***** Sample Removal *****
+
+  #What column(s) in Segment notes contains sample condition to match
+  #if multiple columns must match all sample conditions and operators
+  remove_samples_col: NULL #c("tissue", "roi_shape", "RawReads")
+
+  #what condition(s) to match samples
+  #if multiple conditions must match sample columns and operators
+  remove_samples_condition: NULL #c("CRC7", "Rare cell", 1800000)
+
+  #mathmatical operator for sample removal matching
+  #if multiple operators must match samples conditions and columns
+  #options: == (equals), <, <=, >, >=
+  #format is segment properties [operator] value
+  remove_samples_operators: NULL #c("==", "==", "<")
+
+  #if multiple conditions should sample meet all conditions (TRUE) or any of them (FALSE)
+  remove_samples_and: FALSE
+
+  #should samples that match conditions be kept (TRUE) or removed (FALSE)
+  remove_samples_keep: TRUE
+
+  #if a more elaborate filtering is needed a custom equation can be input here
+  #enter NULL if no custom equation, custom is default if not NULL
+  #dfs[[3]] is the segment properties
+  #very little error checking is done with this custom input so make sure your filtering is
+  #done correctly before running script fully
+  #any quotes within the equation must be negated using \"
+  #example equation "(dfs[[3]]$tissue == \"CRC\" & dfs[[3]]$roi_shape == \"Rare cell\") | dfs[[3]]$RawReads < 1500000"
+  remove_samples_custom: NULL
+
+
+  #***** CLUSTERING *****
+
+  #(loosely) how to balance attention between local and global aspects of your data
+  #a guess about the number of close neighbors each point has
+  tsne_perplexity: 30
+
+  #how should PCA/tSNE/UMAP points be colored,
+  #any column in Segment Notes works as well as cluster
+  #cannot be a TRUE/FALSE column
+  color_by: "roi_shape"
+
+  #how should PCA/tSNE/UMAP points be shaped,
+  #any column in Segment Notes works as well as cluster
+  #only 14 different shapes, will throw error if more are in this column
+  #cannot be a TRUE/FALSE column
+  shape_by: "tissue"
+
+  #should PCA/tSNE/UMAP points be sized based on gene count, TRUE or FALSE
+  size: FALSE
+
+
+  #***** DIFFERENTIAL EXPRESSION *****
+
+  #file path to de_results.csv if available,
+  #DE takes a long time and you only want to do this once
+  #if no de_results input NULL
+  de_results: NULL
+
+  #should Q-Q and residual plots for DE be drawn
+  #note that DE may take longer if this is set to TRUE
+  draw_DE_plots: FALSE
+
+  #gene set annotation of interest for ROC and DE analysis
+  #if multiple groups are wanted should be in format c('group1', 'group2', ..., 'group99').
+  #if no group are wanted "All Probes"
+  gene_group: c("Metabolism of vitamins and cofactors", "Immunoregulatory interactions between a Lymphoid and a non-Lymphoid cell")
+
+  #the number of top genes from gene_group to show on a volcano plot
+  n_top: 15
+
+  #the number of top genes from gene_group to show in heatmap
+  n_top_heatmap: 30
+
+  #list of favorite genes. Should be in format c('gene1', 'gene2', ..., 'gene99') or just NULL.
+  #will be added to volcano plots (and potentially dimension reduction plots of genes)
+  fav_genes: c("CD3",'CD3','CD8A', 'CD8B','CD4','FOXP3','KLRB1','GZMA','GZMB','PRF1','PDCD1','CTLA4','LAG3','HAVCR2','HLA-A','B2M','IRF1','OAS1','CD274','MKI67','CDK1','CCNB1','E2F1', 'IL1B','IFIT1','PTGS2','MARCO','CCL4','CCL8','CD83','CCL3L1','CCL3','HAMP','CXCL10','FOS','CRP','SSX4','CR2','IL19','IFNL1','KDM5B','HDAC1','FASN','HADH','MCAT','CPT1A','GRP78','PERK','NDUFV2','SDHA','OLIG2','COX4','ATP5B','ATP5A1','ADT2','IDH3')
+
+  #test column for DE analysis
+  #cannot be a TRUE/FALSE column
+  grouping_var: "roi_shape"
+
+  #level within test column to compare all other levels
+  base_level: "contour"
+
+  #column in sample annotation to adjust mixed models during DE
+  control_var: "tissue"
+
+  #significance threshold for qq & volcano plots,
+  #can be NULL if you only want fdr on plots
+  pval_cutoff: .05
+
+  #false discovery rate threshold for volcano plots
+  #can be NULL if you only want pval on plots
+  fdr_cutoff: .01
+
+  #significance threshold
+  fc_cutoff: .1
+
+  #default volcano plot color
+  default_color: "#ADADAD"
+
+  #fc color, points above signifiance (pval or fdr) cutoff
+  # but not above fc_cutoff, set to same as default color if
+  # you don't want these point called out
+  fc_color: "grey35"
+
+  #gene label size on volcano plot
+  label_size: 3
+
+  #should points above significance thresholds (pval & fdr) but below FC cutoff be labeled
+  label_fc: FALSE
+
+  #should the volcano plot be colored by significant points or by gene group
+  #options are "Significance" or "Gene Group" will be "Significance" by default
+  volcano_color: "Significance"
+
+  #should the volcano plot be labeled by significant points or by fav genes
+  #options are "Significance" or "Fav Genes" will be "Significance" by default
+  volcano_label: "Significance"
+
+  #***** ROI Plots *******
+
+  # NOTE: most parameters can be specified within the actual DSP_hydra.R script. Below are key parameters to change
+
+  # plot_type - 'joy', 'heatmap', or 'bar' plots are currently supported
+  ROI_plot_type: 'joy'
+
+  # whether to save ROI plots to PDF - each page will contain a seperate ROI
+  save_ROI_plots: TRUE
+
+  # ROI & AOI column
+  # either a single column or multiple columns needed to identify individual ROIs if unique columns are not present
+  ROI_ID: 'Sample_ID'
+  AOI_ID: 'Sample_ID'
+
+  # AOI annotation column
+  # either the name of a column or FALSE if no segmentation was used. If false the first color
+  # and column name shall be picked form the lists below
+  segment_Annotation: FALSE
+
+  # Segment Names - a list of names that are expected to be present in the AOI_ID column.
+  # May be a subset of the column entries if only a subset of AOIs should be plotted
+  AOI_names: c('Tumor','Stroma')
+
+  # AOI colors - either named colors or hexidecimal color codes (e.g. 'green' = '#00FF00')
+  #   length of the list should match the length of AOI_names
+  AOI_colors: c('green3', 'cyan')
+
+  # Targets to plot over ROI & threshold
+  # either a list of targets, or a method for identifying them (acceptable entries include
+  #     'median','mean','CV','sd','IQR' or other mathematical functions for identifying data)
+  # if a method is provided then target_thresh is used. The top targets above the target_thresh
+  #      percentile will be graphed. E.g. 0.5 means the top half of probes will be plotted.
+  targets_ROI_plot: 'median'
+  target_thresh: 0.5
+
+  # Plotting transformation
+  # how to transform data to plot in the ROI
+  # if NULL linear values will be plotted. Transformations include 'log2','logit','scale' (z-score), and other
+  #     that can be applied across rows of genes functions can be passed
+  target_transformation: NULL
+
+  # Cluster Number
+  # how many clusters to identify across all ROIs based on dendrogram
+  cluster_n: 8
+
+
+  #***** Cell Typing *****
+
+  #Names of AOIs with nearly 100% tumor content. Must be elements of the colnames of norm_counts.
+  #If NULL, the decon model will ignore tumo-intrinsic expression, which usually works just fine.
+  #Must have at least 2 AOIs, else decon model will ignore tumo.intrinsic expression
+  high_tumor_AOIs: c("ZZ209-PP03-H02", "ZZ209-PP04-A01", "ZZ209-PP04-A10", "ZZ209-PP04-B10", "ZZ209-PP03-B02", "ZZ209-PP03-C02", "ZZ209-PP03-D02")
+
+  #cell profile matrix choice
+  #choices are located in Cell_Decon_Training_Matrices.txt
+  #type number corresponding to desired matrix
+  #NanoString Immune matrix = 1
+  #
+  #if you want a custom profile matrix enter the csv file path to matrix
+  profile_matrix: 1
+
+  #if using custom profile matrix, file path to txt file containing binned cell types
+  #change all spaces in names to .
+  #set to NULL if not using custom profile matrix
+  #format: binName [tab] cellType [space] cellType [space] cellType
+  binned_cellTypes: NULL
+
+  #cell count column in Sample Notes
+  #set to NULL if no cell count column
+  cell_count: NULL
+
+  #column containing segmentation information
+  #if supplied tumor segments will not be plotted
+  #put NULL if not segmented
+  segmentation: NULL
+
+  #label for segments to be skipped in floret plots
+  #segmented data have multiple AOIs per x,y coordinate
+  #causing overlapping florets, should be Tumor in most cases
+  #put NULL if no segement should be skipped
+  #if multiple segments c("seg1", "seg2")
+  skipped_seg: NULL
+
+  #axes types for decon figures
+  #options: pca, tsne, umap, xy
+  xy_axes: "tsne"
+
+  #if xy_axes is xy what columns in Sample Notes contains xy information; else NULL
+  x_position: NULL
+  y_position: NULL
+
+  #x axis label for decon figures
+  x_label: "tSNE 1"
+
+  #y axis label for decon figures
+  y_label: "tSNE 2"
+
+
+  #***** Pathway Analysis *****
+
+  #how you would like to rank your gene list that goes into pathway analysis, only 3 options: "FC", "Pval", "fdr", standard is foldchange
+  geneListrank: "FC"
+
+  #fold change cutoff for ranking the DE gene list that goes into pathway analysis
+  path_fc: 0.35
+
+  #pvalue cutoff for enriched pathways
+  path_pval: 0.05
+
+  #return which pathway analysis to robject (all 3 write to file), only 3 options: "ORA", "GSEA", "ssGSEA"
+  enrichment: "GSEA"
+
+  #path to custom pathway files
+  #from location where DSP_hydra.R script is
+  #ensure only gmt files that are to be included in analysis exists in directory
+  custom_pathways_path: NULL
+
+  #should pathway analysis exclude the default pathways from reactome
+  #only pertinent if custom pathways were provided
+  exclude_reactome: FALSE
+
+
+  #***** COLORING *****
+
+  # Color palettes may be either:
+  #  - those defined in the RColorBrewer package by brewer.pal.info()/display.brewer.all()
+  #      e.g. "Set1", "Set2", "Dark2"
+  #  - or the lower case palette names of ggsci (https://cran.r-project.org/web/packages/ggsci/vignettes/ggsci.html)
+  #      e.g. "npg", "aaas", "nejm", "startrek", etc (only default palettes will be used)
+  #           do not add "pal_" in front of the named palette of interest
+
+  #color palette for gene set annotation of interest
+  color_genes: "Dark2"
+
+  #color palette for samples
+  color_samples: "Set2"
+
+  #color palette for groups (e.g. clusters within ROI plots)
+  color_grouping: "Set1"
+
+
+  #***** THEME *****
+
+  #use a preset theme for plotting throughout analysis, set to NULL to use default theme
+  #function indicating ggplot theme to use, e.g. theme_economist()
+  #Note: some aesthetics cannot be overriden as they are plot-specific
+  preset_theme: NULL
+
+  #update theme for plotting throughout analysis, set to NULL to use default theme
+  #list of non-data aesthetic mappings to update
+  #e.g. list(panel.background = element_rect(colour = "pink"), panel.grid.minor = element_line(colour = "red"))
+  #Note: some aesthetics cannot be overriden as they are plot-specific
+  theme_adjustments: NULL

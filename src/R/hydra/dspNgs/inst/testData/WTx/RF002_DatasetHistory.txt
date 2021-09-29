@@ -1,0 +1,30 @@
+Summary for RF002
+25 AOIs + NTCs Expected
+Total Aligned Reads: 76M
+Total Unique Reads: 47M (62%)
+Aligned Median: 2,824,203
+Aligned Range: 57,077 - 14,954,095
+Percent Unique > 90% Dropouts: 
+Low Read Dropouts: 
+Expected negatives to be removed: DSP-1011206234567-A03, DSP-1011206234567-A05, DSP-1011206234567-A06, DSP-1011206234567-A07, DSP-1011206234567-A08, DSP-1011206234567-A09, DSP-1011206234567-A10, DSP-1011206234567-A11, DSP-1011206234567-A12, DSP-1011206234567-B01, DSP-1011206234567-B02, DSP-1011206234567-B03, DSP-1011206234567-H09, DSP-1011206234567-H10, DSP-1010474710004-A02, DSP-1010474710004-A03
+Probes Detected at least once: 18,346
+18,507 Probes listed in expected file.
+16 AOIs / NTCs removed from analysis.
+Remaining Aligned Reads: 12M
+	Remaining Aligned Median: 928,693
+	Remaining Aligned Range: 57,077 - 4,709,306
+Remaining Unique Reads: 7M (57%)
+18,211 targets found in dataset. 18,372 targets listed in lookup table.
+0 low count probes identified.
+1 probes identified as global grubbs outliers.
+Counts for pool: WTX
+	Mean of Collapsed Negatives: 8.137108
+	Mean of Collapsed Targets: 42.77631
+Pool mappings
+	WTX = 01
+Pool mappings
+	WTX = 01
+9 AOIs out of 9 had at least one target with expression greater than an LOD of GeoMean(Negatives) * GeoSD(Negatives)^2.5
+Min Significant: 448
+Median Significant: 1779
+Max Significant: 7364

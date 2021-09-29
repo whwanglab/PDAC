@@ -1,0 +1,32 @@
+Summary for TEST
+168 AOIs + NTCs Expected
+Total Aligned Reads: 656M
+Total Unique Reads: 209M (32%)
+Aligned Median: 1,757,488
+Aligned Range: 318 - 40,373,460
+Percent Unique > 50% Dropouts: ZZ209-PP03-B11, ZZ209-PP03-A12, ZZ209-PP03-C01, ZZ209-PP03-A03, ZZ209-PP03-F11, ZZ209-PP03-E12, ZZ209-PP03-G01, ZZ209-PP03-A07, ZZ209-PP03-D11, ZZ209-PP03-C12, ZZ209-PP03-A05, ZZ209-PP03-E01, ZZ209-PP03-A10, ZZ209-PP03-A01, ZZ209-PP03-H11, ZZ209-PP03-G12, ZZ209-PP03-A09, ZZ209-PP03-E05, ZZ209-PP03-G06, ZZ209-PP03-B12, ZZ209-PP03-C11, ZZ209-PP03-A04, ZZ209-PP03-D01, ZZ209-PP03-F12, ZZ209-PP03-G11, ZZ209-PP03-C06, ZZ209-PP03-H01, ZZ209-PP03-D12, ZZ209-PP03-E11, ZZ209-PP03-C04, ZZ209-PP03-F01, ZZ209-PP03-A11, ZZ209-PP03-A02, ZZ209-PP03-B01, ZZ209-PP03-H12, ZZ209-PP03-C08
+Low Read Dropouts: ZZ209-PP04-F10,ZZ209-PP03-E01,ZZ209-PP03-A01,ZZ209-PP04-F12,ZZ209-PP03-H11,ZZ209-PP04-F11
+Expected negatives to be removed: ZZ209-PP04-F10, ZZ209-PP04-F11, ZZ209-PP04-F12
+Probes Detected at least once: 5,011
+5,011 Probes listed in expected file.
+39 AOIs / NTCs removed from analysis.
+Remaining Aligned Reads: 623M
+	Remaining Aligned Median: 2,987,132
+	Remaining Aligned Range: 69,364 - 40,373,460
+Remaining Unique Reads: 190M (31%)
+1,414 targets found in dataset. 1,414 targets listed in lookup table.
+22 low count probes identified.
+52 probes identified as global grubbs outliers.
+Counts for pool: bkp
+	Mean of Collapsed Negatives: 19.63603
+	Mean of Collapsed Targets: 532.7631
+Counts for pool: lkp
+	Mean of Collapsed Negatives: 11.26644
+	Mean of Collapsed Targets: 462.4929
+Pool mappings
+	lkp = 01
+	bkp = 02
+129 AOIs out of 129 had at least one target with expression greater than an LOD of GeoMean(Negatives) * GeoSD(Negatives)^2.5
+Min Significant: 171
+Median Significant: 858
+Max Significant: 1377

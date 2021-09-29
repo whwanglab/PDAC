@@ -1,0 +1,28 @@
+Summary for BK_FLUOR_NewAzorius
+56 AOIs + NTCs Expected
+Total Aligned Reads: 669M
+Total Unique Reads: 294M (44%)
+Aligned Median: 13,266,522
+Aligned Range: 1,151,828 - 28,745,170
+Percent Unique > 90% Dropouts: DSP-1011206234567-B12, DSP-1011206234567-B08
+Low Read Dropouts: 
+Expected negatives to be removed: 
+Probes Detected at least once: 18,428
+18,507 Probes listed in expected file.
+2 AOIs / NTCs removed from analysis.
+Remaining Aligned Reads: 666M
+	Remaining Aligned Median: 13,340,343
+	Remaining Aligned Range: 1,151,828 - 28,745,170
+Remaining Unique Reads: 291M (44%)
+18,293 targets found in dataset. 18,372 targets listed in lookup table.
+0 low count probes identified.
+1 probes identified as global grubbs outliers.
+Counts for pool: WTX
+	Mean of Collapsed Negatives: 44.1404
+	Mean of Collapsed Targets: 294.0596
+Pool mappings
+	WTX = 01
+54 AOIs out of 54 had at least one target with expression greater than an LOD of GeoMean(Negatives) * GeoSD(Negatives)^2.5
+Min Significant: 455
+Median Significant: 8224.5
+Max Significant: 9659

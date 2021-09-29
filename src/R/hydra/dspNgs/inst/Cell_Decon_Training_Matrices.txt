@@ -1,0 +1,32 @@
+Options for Cell Decon Training Matrix
+In Hydra config (line 287) type number corresponding to desired matrix
+
+ 1. NanoString Immune
+ 2. Airway_Epithelium - MOUSE ONLY 
+ 3. Atlas_Adult_Retina_10x  
+ 4. Census_Adult_Immune_10x  
+ 5. Census_Newborn_Blood_10x  
+ 6. Diff_Fetal_Neuron_SS2  
+ 7. FetalMaternal_Adult_Blood_10x  
+ 8. FetalMaternal_Adult_Blood_SS2  
+ 9. FetalMaternal_Adult_Decidua_10x  
+10. FetalMaternal_Adult_Decidua_SS2  
+11. FetalMaternal_Fetal_Placenta_10x  
+12. Human_brain  
+13. Human_Cell_Landscape  
+14. IBD_Adult_Colon_10x  
+15. Landscape_Adult_Liver_10x  
+16. Lung_plus_neutrophils
+17. Mouse_Brain - MOUSE ONLY
+18. Profiling_Adult_BoneMarrow_10x  
+19. Reprogram_Embryo_Dendritic_10x  
+20. Sensitivity_Adult_Esophagus_10x  
+21. Sensitivity_Adult_Lung_10x  
+22. Sensitivity_Adult_Spleen_10x  
+23. Somatic_Adult_Pancreas_SS2  
+24. SpatioTemporal_Adult_Kidney_10x  
+25. SpatioTemporal_Fetal_Kidney_10x  
+26. Tcell_Adult_Blood_10x  
+27. Tcell_Adult_BoneMarrow_10x  
+28. Tcell_Adult_Lung_10x  
+29. Tcell_Adult_LymphNode_10x

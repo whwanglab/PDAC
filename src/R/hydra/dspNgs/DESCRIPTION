@@ -1,0 +1,65 @@
+Package: dspNgs
+Type: Package
+Title: dspNgs Hydra Pipeline
+Version: 0.3.2
+Author: Hydra Team
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+biocViews: Infrastructure, org.Hs.eg.db, org.Mm.eg.db, ReactomePA, fgsea, GSVA, reactome.db
+Depends: R (>= 3.5.0),
+         annotate,
+         circlize,
+         ComplexHeatmap,
+         config,
+         dplyr,
+         edgebundleR,
+         EnvStats,
+         factoextra,
+         FactoMineR,
+         fgsea,
+         flux,
+         futile.logger,
+         GGally,
+         ggraph,
+         ggplot2,
+         ggrepel,
+         ggridges,
+         ggthemes,
+         ggsci,
+         grid,
+         gridBase,
+         GSVA,
+         igraph,
+         lattice,
+         lme4,
+         lmerTest,
+         migest,
+         org.Mm.eg.db,
+         org.Hs.eg.db,
+         parallel,
+         pheatmap,
+         plotly,
+         plotROC,
+         processx,
+         psych,
+         RColorBrewer,
+         ReactomePA,
+         reactome.db,
+         readxl,
+         reshape2,
+         rstudioapi,
+         Rtsne,
+         scales,
+         stringr,
+         tibble,
+         tidyr,
+         umap,
+         viridis,
+         pbapply
+LazyData: true
+RoxygenNote: 7.1.1
+Suggests: 
+    testthat
