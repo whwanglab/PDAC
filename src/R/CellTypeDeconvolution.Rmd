@@ -1,0 +1,1045 @@
+---
+title: Spatial Analysis
+date: "`r Sys.Date()`"
+author: Payman Yadollahpour
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: false
+    highlight: kate
+pkgdown:
+  as_is:true
+---
+
+```{r, include=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print = "75")
+opts_chunk$set(
+  echo = FALSE,
+  cache = FALSE,
+  prompt = FALSE,
+  tidy = TRUE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE,
+  results = 'hide',
+  fig.width=18,
+  fig.height=8
+)
+opts_knit$set(width = 75)
+```
+
+```{r load-data}
+library(dspNgs)
+library(SpatialDecon)
+library(Seurat)
+library(SeuratDisk)
+library(tidyseurat)
+library(sctransform)
+library(Hmisc)
+library(BBmisc)
+library(nnls)
+library(readxl)
+library(sparseMatrixStats)
+library(pheatmap)
+library(ggplot2)
+library(gridExtra)
+library(gtools)
+library(lme4)
+library(lmerTest)
+library(corrplot)
+library(celda)
+library(SingleCellExperiment)
+library(scater)
+library(quadprog)
+library(progress)
+library(mltools)
+library(data.table)
+
+setwd("/mnt/disks/datadisk1/gsbucket/geomx/ngs/code/complete_analysis")
+load("/mnt/disks/datadisk1/gsbucket/geomx/ngs/data/complete_acquisition/WTA/HydraWorkingEnvPreFiltering.RData")#, envir = ss_hydra_prefilter)
+
+results_dir <- "/mnt/disks/datadisk1/gsbucket/geomx/ngs/code/complete_analysis/Hydra_Output/results"
+qc_dir <- paste(results_dir, "qc", sep = "/")
+
+if (!all(diff(match(colnames(dfs[[1]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[1]] <- dfs[[1]][, c(colnames(dfs[[1]])[1], dfs[[3]]$Sample_ID)]
+}
+
+if (!all(diff(match(colnames(dfs[[2]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[2]] <- dfs[[2]][, c(colnames(dfs[[2]])[1], dfs[[3]]$Sample_ID)]
+}
+
+## pull out negative probe
+print(grep(x = dfs[[1]]$TargetName, pattern = "Neg Probe")) # "NegProbe-WTX"
+negprobe_row_old <- dfs[[1]][dfs[[1]]$TargetName %in% "Neg Probe", ] # "NegProbe-WTX"
+dfs[[1]] <- dfs[[1]][!(dfs[[1]]$TargetName %in% "Neg Probe"), ] # "NegProbe-WTX"
+print(dim(dfs[[1]]))
+
+
+## use detrended data; fewer AOI's since for detrending all three segments need to be present in ROI
+## it is already missing negative probe
+dfsold <- dfs
+dfs <- readRDS("/mnt/disks/datadisk1/gsbucket/geomx/ngs/data/complete_acquisition/WTA/dfs_BackCalc_detrendApproach21-6-4.RDS")
+dfs[[6]] <- dfs[[6]] %>%
+  rename(TargetName = Gene)
+dfs[[6]][,-1] <- ceiling(dfs[[6]][,-1])
+negprobe_row <- dfs[[6]][dfs[[6]]$TargetName %in% "Neg Probe", ] # "NegProbe-WTX"
+dfs[[6]] <- dfs[[6]][!(dfs[[6]]$TargetName %in% "Neg Probe"), ] # "NegProbe-WTX"
+print(dim(dfs[[6]]))
+
+## get de gene list from snuqseq data
+de_genes_snuqseq <- read.csv("/mnt/disks/datadisk1/gsbucket/kjag/DE_genes_snuseq.csv", header = TRUE, check.names = FALSE)
+de_gene_list <- list()
+# de_gene_list <- c()
+for (col in colnames(de_genes_snuqseq)) {
+  de_gene_list[[col]] <- de_genes_snuqseq[col][!de_genes_snuqseq[col] == ""]
+  # de_gene_list <- c(de_gene_list,de_genes_snuqseq[col][!de_genes_snuqseq[col] == ""])
+}
+
+markers <- c()
+for (ct in names(de_gene_list)) {
+  markers[[ct]] <- de_gene_list[[ct]][1:10]
+}
+
+```
+
+
+## De-trending effect
+* Look at effect of de-trending on top genes for CD4+ T in CAF, Immune, and Malignant compartments.
+The top-10 genes are from SnuSeq DE analysis. `dlogcounts` is detrended log-counts.
+```{r detrend-violin-immune, echo=TRUE}
+dfs0 <- dfsold[[1]][row.names(dfs[[6]]),colnames(dfs[[6]])]
+sce_nmf <-SingleCellExperiment(assays = list(decontXcounts = as.matrix(dfs[[6]][,-1]), counts = as.matrix(dfs0[,-1])))
+sce_nmf <- logNormCounts(sce_nmf)
+sce_nmf <- logNormCounts(sce_nmf, exprs_values = "decontXcounts", name = "dlogcounts")
+rowData(sce_nmf) <- dfs0$TargetName
+plotDecontXMarkerExpression(sce_nmf, markers = markers[["CD4+ T"]], groupClusters = list(Immune = 3, CAF = 1, Malignant = 2), assayName = c("logcounts", "dlogcounts"), z = as.numeric(factor(dfs[[3]]$Segment)), by = "value", ncol =10)
+
+```
+
+* Same analysis but for CAF
+```{r detrend-violin-CAF}
+plotDecontXMarkerExpression(sce_nmf, markers = markers[["CAF"]], groupClusters = list(Immune = 3, CAF = 1, Malignant = 2), assayName = c("logcounts", "dlogcounts"), z = as.numeric(factor(dfs[[3]]$Segment)), by = "value", ncol =10)
+
+```
+
+* ... and for Epithelial (malignant)
+```{r detrend-violin-malignant}
+plotDecontXMarkerExpression(sce_nmf, markers = markers[["Epithelial (malignant)"]], groupClusters = list(Immune = 3, CAF = 1, Malignant = 2), assayName = c("logcounts", "dlogcounts"), z = as.numeric(factor(dfs[[3]]$Segment)), by = "value", ncol =9)
+
+```
+
+```{r bind-dfs6-to-dfs1}
+## replace dfs[[1]] with dfs[[6]] and put neg-probe back in
+dfs[[1]] <- dfs[[6]]
+dfs[[1]] <- rbind(dfs[[1]], negprobe_row)
+
+colnames(dfs[[2]])[1] <- "TargetName"
+
+
+if (!all(diff(match(colnames(dfs[[1]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[1]] <- dfs[[1]][, c(colnames(dfs[[1]])[1], dfs[[3]]$Sample_ID)]
+}
+
+if (!all(diff(match(colnames(dfs[[2]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[2]] <- dfs[[2]][, c(colnames(dfs[[2]])[1], dfs[[3]]$Sample_ID)]
+}
+
+## pull out negative probe
+print(grep(x = dfs[[2]]$TargetName, pattern = "Neg Probe")) # "NegProbe-WTX"
+dfs2 <- dfs[[2]][!(dfs[[2]]$TargetName %in% "Neg Probe"), ] # "NegProbe-WTX"
+print(dim(dfs2))
+dfs2old <-dfsold[[2]]
+dfs2old <- dfs2old[!(dfs2old$TargetName %in% "Neg Probe"),]
+```
+
+* de-trended UMAP
+```{r de-trend-umap}
+sce_norm <- SingleCellExperiment(assays = list(counts = as.matrix(dfs2[,-1])))
+sce_norm <- logNormCounts(sce_norm)
+sce_norm <- runUMAP(sce_norm)
+umap_norm <- reducedDim(sce_norm, "UMAP")
+plotDimReduceCluster(x = dfs[[3]]$Segment, dim1 = umap_norm[, 1], dim2 = umap_norm[, 2])
+```
+
+* check re-normalized data still detrending similar to before, for CAF cell type
+```{r normdat-detrend-violin-CAF}
+dfs0 <- dfs2old[row.names(dfs2),colnames(dfs2)]
+sce_norm <- SingleCellExperiment(assays = list(decontXcounts = as.matrix(dfs2[, -1]), counts = as.matrix(dfs0[, -1])))
+sce_norm <- logNormCounts(sce_norm)
+sce_norm <- logNormCounts(sce_norm, exprs_values = "decontXcounts", name = "dlogcounts")
+rowData(sce_norm) <- dfs2$TargetName
+plotDecontXMarkerExpression(sce_norm, markers = markers[["CAF"]], groupClusters = list(Immune=3, CAF=1, Malignant=2), assayName=c("logcounts","dlogcounts"), z = as.numeric(factor(dfs[[3]]$Segment)), by="value", ncol=10)
+```
+
+```{r save-wkspc-postQ3}
+colnames(dfs[[2]])[1] <- "Gene"
+if (!file.exists("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_postdeconX_postnormlz_postQC_postLOQ_postQ3.RData")) {
+  save.image("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_postdeconX_postnormlz_postQC_postLOQ_postQ3.RData")
+}
+## removing non malignant samples only after Q3 normalization to match Jason's Q3 normalization (should have removed before normalization but shouldn't effect results that much)
+
+
+```
+
+```{r profile-matrix}
+## Construct profile matrix
+if (!file.exists("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_deconX.RData")) {
+  if (file.exists("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_postdeconX_postnormlz_postQC_postLOQ_postQ3.RData")) {
+    load("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_postdeconX_postnormlz_postQC_postLOQ_postQ3.RData")
+  }
+  snuqseq <- LoadH5Seurat("/mnt/disks/datadisk1/gsbucket/kjag/totaldata-clean-infercnv-annotated-final-countsasraw.h5seurat",assays = "RNA")
+
+  ## Collapse level-2 cell types
+  ctype_annotations <- as.character(snuqseq@meta.data$Level.2.Annotation)
+  level3_annotations <- as.character(snuqseq@meta.data$Level.3.Annotation)
+  re_assign_ctypes <- function (annotations, new_ctype, old_ctypes) {
+    for (ctype in old_ctypes) {
+      annotations[annotations == ctype] <- new_ctype
+    }
+    return(annotations)
+  }
+  ctype_annotations <- re_assign_ctypes(ctype_annotations,"Endocrine", c("Alpha", "Beta", "Delta", "Gamma", "Epsilon", "Hormone-negative neuroendocrine"))
+  ctype_annotations <- re_assign_ctypes(ctype_annotations,"CD8+ T", c("CD8+_T", "T (MT high)"))
+  ctype_annotations <- re_assign_ctypes(ctype_annotations,"CAF", c("myCAF", "iCAF", "CAF"))
+  ctype_annotations <- re_assign_ctypes(ctype_annotations,"Endothelial", c("Lymphatic", "Vascular"))
+  ctype_annotations <- re_assign_ctypes(ctype_annotations,"Epithelial (non-malignant)",  c("Acinar", "ADM", "Ductal", "Ductal (atypical)" ))
+  ctype_annotations[ctype_annotations == "Dendritic"] <- level3_annotations[ctype_annotations == "Dendritic"]
+  ctype_annotations <- as.factor(ctype_annotations)
+  for (i in seq(to = length(ctype_annotations))) {
+    if (ctype_annotations[i] == "Dendritic") {
+      ctype_annotations[i] <- level3_annotations[i]
+    }
+  }
+  snuqseq@meta.data$Level.2_3.Annotation <- ctype_annotations
+  ##
+
+  celltypes <- levels(snuqseq@meta.data$Level.2_3.Annotation)
+
+  immune_celltypes <- c("B", "CD8+ T", "CD4+ T", "Dendritic (activated)","Dendritic (conventional type 1)", "Dendritic (conventional type 2)", "Dendritic (plasmacytoid)",  "Macrophage", "Mast", "Natural killer", "Plasma", "Treg", "Neutrophil")
+
+  profile_matrix <- c()
+  for (ctype in immune_celltypes) {
+    snuqseq_subset <- subset(snuqseq, subset = Level.2_3.Annotation == ctype)
+    ctype_counts <- GetAssayData(snuqseq_subset, slot = "counts")
+    gmean_counts <- sctransform:::row_gmean(ctype_counts)
+    profile_matrix <- cbind(profile_matrix, gmean_counts)
+  }
+  colnames(profile_matrix) <- immune_celltypes
+  row.names(profile_matrix) <- row.names(snuqseq_subset)
+
+  q3_normFactor <- nanoNormFactors(apply(profile_matrix, 2,
+                                         quantile,
+                                         probs = 0.9, na.rm = T
+                                         ))
+                                        # Renormalize the data using the Q3 factor
+  q3_profile_matrix <- data.frame(t(t(profile_matrix) / q3_normFactor), check.names = FALSE)
+
+  for (ctype in immune_celltypes) {
+    de_genes <- de_gene_list[[ctype]]
+    q3_profile_matrix[!row.names(q3_profile_matrix) %in% de_genes, ctype] <- 0
+  }
+}
+```
+
+## Deconv with de-trended raw and normalized expression
+
+```{r deconv}
+if (!file.exists("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_deconX.RData")){
+
+  dfs[[3]] <- dfs[[3]] %>% filter((Not_malignant == 0) | is.na(Not_malignant))
+  valid_samples <- pull(dfs[[3]], Sample_ID)
+  dfs[[1]] <- dfs[[1]][, c("TargetName", valid_samples)]
+  dfs[[2]] <- dfs[[2]][, c("Gene", valid_samples)]
+
+  immune_aois <-dfs[[3]] %>%
+    filter(Segment == "Immune") %>%
+    select(Sample_ID)
+
+  common_genes_dfs2_profile_mtx <- intersect(row.names(dfs[[2]]), row.names(q3_profile_matrix))
+  q3_profile_matrix <- q3_profile_matrix[common_genes_dfs2_profile_mtx, ]
+
+  assign("user_profile_matrix","/mnt/disks/datadisk1/gsbucket/kjag/snuqseq_profile_mtx_2_3_ctypes_jason_post_qc_post_q3_completedata_deconX.csv",envir=.GlobalEnv)
+  write.table(q3_profile_matrix, file = paste(dirname(user_profile_matrix), "snuqseq_profile_mtx_2_3_ctypes_jason_post_qc_post_q3_completedata_deconX.csv", sep = "/"), sep = ",", row.names = TRUE)
+
+  dfs_rtc_immune <- dfs
+  dfs_rtc_immune[[1]] <- dfs_rtc_immune[[1]][, c("TargetName", immune_aois$Sample_ID)]
+  dfs_rtc_immune[[2]] <- dfs_rtc_immune[[2]][, c("Gene", immune_aois$Sample_ID)]
+  dfs_rtc_immune[[3]] <- dfs_rtc_immune[[3]][dfs_rtc_immune[[3]]$Sample_ID %in% immune_aois$Sample_ID, ]
+  immune_seg_indxs <- dfs[[3]]$Sample_ID %in% immune_aois$Sample_ID
+
+  ss_hydra_session <- new.env()
+                                        #load("./DSP_hydra_session.RData", envir = ss_hydra_session) # , envir = saved_session
+  load("/mnt/disks/datadisk1/gsbucket/geomx/ngs/data/complete_acquisition/WTA/HydraWorkingEnvQ3.RData", envir = ss_hydra_session)
+  cellType_dir <- paste(results_dir, "cellTyping", sep = "/")
+  print("Cell Type Deconvolution")
+  decon <- run_cell_decon(
+    df = dfs_rtc_immune,
+    matrix = q3_profile_matrix, # _rtc_immune, #profile_matrix,
+    norm_method = norm_method,
+    tumor_high_ids = high_tumor_AOIs,
+    x = ss_hydra_session$x_position_col[immune_seg_indxs], # ss_hydra_session$x_position #saved_session$#[immune_seg_indxs],
+    y = ss_hydra_session$y_position_col[immune_seg_indxs], # ss_hydra_session$y_position #saved_session$#[immune_seg_indxs],
+    xlab = x_label,
+    ylab = y_label,
+    segment = "Segment", # segmentation
+    skip = skipped_seg,
+    outdir = cellType_dir
+  )
+  decon_prop_of_all <- decon$prop_of_all
+  decon_cell_counts <- decon$cell.counts$cell.counts
+  decon_cell_counts_per_100 <- decon$cell.counts$cells.per.100
+  row.names(decon_prop_of_all) <- immune_celltypes
+  save.image("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_deconX.RData")
+} else {
+  rm(list = ls(all.names = TRUE)) # will clear all objects includes hidden objects.
+  gc()
+  load("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_deconX.RData")
+}
+```
+
+```{r segment-celltype-proportions}
+results_dir <- "/mnt/disks/datadisk1/gsbucket/geomx/ngs/code/complete_analysis/Hydra_Output/results"
+qc_dir <- paste(results_dir, "qc", sep = "/")
+cellType_dir <- paste(results_dir, "cellTyping", sep = "/")
+
+read_config()
+assign("assoc_dir", paste(results_dir, "associations", "deconX", sep = "/"), .GlobalEnv)
+create_dir(assoc_dir, "Associations")
+ss_decon <- new.env()
+load("/mnt/disks/datadisk1/gsbucket/kjag/decon_wkspc_completedata_jason_deconX.RData", envir = ss_decon)
+decon_prop_of_all <- ss_decon$decon_prop_of_all
+decon_cell_counts <- ss_decon$decon_cell_counts
+decon_cell_counts_per_100 <- ss_decon$decon_cell_counts_per_100
+if (!all(diff(match(colnames(dfs[[1]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[1]] <- dfs[[1]][, c(colnames(dfs[[1]])[1], dfs[[3]]$Sample_ID)]
+}
+
+if (!all(diff(match(colnames(dfs[[2]][-1]), dfs[[3]]$Sample_ID)) > 0)) {
+  print("Fixing column orderings")
+  dfs[[2]] <- dfs[[2]][, c(colnames(dfs[[2]])[1], dfs[[3]]$Sample_ID)]
+}
+dfs[[3]] <- dfs[[3]] %>% filter((Not_malignant == 0) | is.na(Not_malignant))
+valid_samples <- pull(dfs[[3]], Sample_ID)
+dfs[[1]] <- dfs[[1]][, c("TargetName", valid_samples)]
+dfs[[2]] <- dfs[[2]][, c("Gene", valid_samples)]
+
+immune_celltypes <- c("B", "CD8+ T", "CD4+ T", "Dendritic (activated)", "Dendritic (conventional type 1)", "Dendritic (conventional type 2)", "Dendritic (plasmacytoid)", "Macrophage", "Mast", "Natural killer", "Plasma", "Treg", "Neutrophil")
+
+
+gat <- as.data.frame(decon_prop_of_all) %>%
+  mutate(celltype = rownames(decon_prop_of_all)) %>%
+    gather(-celltype, key = "Sample_ID", value = "count") %>%
+    inner_join(select(dfs[[3]], "Sample_ID", "Scan_name", "ROI_number", "Segment"), by = "Sample_ID") %>%
+    filter(Segment == "Immune") %>%
+    group_by(Scan_name, ROI_number, celltype, Segment) %>%
+    summarise(count_sum = count) %>%
+    ungroup()
+
+segment_immune_celltype_counts <- gat %>%
+  pivot_wider(id_cols = c(Scan_name, ROI_number, celltype, Segment), names_from = c(Scan_name, ROI_number), values_from = count_sum)
+
+segment_immune_celltype_counts <- as.data.frame(segment_immune_celltype_counts) %>%
+  column_to_rownames(var = "celltype") %>%
+  select(c(-Segment))
+
+segment_immune_celltype_counts_all <- segment_immune_celltype_counts
+segment_immune_celltype_counts <- apply(segment_immune_celltype_counts[immune_celltypes, ], 2, function(x) {
+  x / sum(x)
+})
+
+raw_counts <- dfs[[1]]
+norm_counts <- dfs[[2]]
+
+norm_countsz <- norm_counts
+get_target_counts <- function(segment_name) {
+  segment_raw_counts <- norm_countsz %>%
+    gather(-Gene, key = "Sample_ID", value = "count") %>%
+    inner_join(select(dfs[[3]], "Sample_ID", "Scan_name", "ROI_number", "Segment"), by = "Sample_ID") %>%
+    filter(Segment == segment_name) %>%
+    group_by(Scan_name, ROI_number, Gene, Segment) %>%
+    summarise(count_sum = count) %>%
+    ungroup()
+
+  segment_target_counts <- segment_raw_counts %>%
+    pivot_wider(id_cols = c(Scan_name, ROI_number, Gene, Segment), names_from = c(Scan_name, ROI_number), values_from = count_sum)
+
+  segment_target_counts <- segment_target_counts %>%
+    column_to_rownames(var = "Gene")
+  return(segment_target_counts)
+}
+
+segment_CAF_target_counts <- get_target_counts("CAF")
+segment_Epit_target_counts <- get_target_counts("Epithelial")
+
+segment_Immune_target_counts <- get_target_counts("Immune")
+
+segment_CAF_target_counts_mtx <- as.matrix(segment_CAF_target_counts %>%
+  select(-Segment))
+segment_Epit_target_counts_mtx <- as.matrix(segment_Epit_target_counts %>%
+  select(-Segment))
+
+```
+
+* Immune cell type proportions; computed on immune segments only.
+```{r celltype-proportion-plot}
+plt <- pheatmap(t(rowMeans(decon_prop_of_all)), main="celltype proportions", cluster_cols = F, cluster_rows = F, cellwidth = 30, cellheight = 30)
+plt$gtable
+```
+
+* Immune cell type correlations against each other; immune segments only.
+```{r celltype-correlation-plot}
+cor_res_seg <- cor(t(as.matrix(segment_immune_celltype_counts)), method = "spearman")
+plt <-pheatmap(cor_res_seg, main = "celltype proportion correlations over immune segments", cellwidth = 30, cellheight = 30)
+plt$gtable
+```
+
+```{r topic-scoring}
+## instead read ssgsea scores from file (produced by Jason)
+get_program_target_scores <- function(program_scores, segment_name) {
+  segment_ssgsea_scores <- program_scores %>%
+    rownames_to_column(var = "program_name") %>%
+    gather(-program_name, key = "Sample_ID", value = "ssgsea_score") %>%
+    inner_join(select(dfs[[3]], "Sample_ID", "Scan_name", "ROI_number", "Segment"), by = "Sample_ID") %>%
+    filter(Segment == segment_name) %>%
+    select(-Segment) %>%
+    ungroup()
+
+  segment_ssgsea_scores <- segment_ssgsea_scores %>%
+    pivot_wider(id_cols = c(Scan_name, ROI_number, program_name), names_from = c(Scan_name, ROI_number), values_from = ssgsea_score) %>%
+    column_to_rownames(var = "program_name")
+
+  return(segment_ssgsea_scores)
+}
+
+## ssgsea_df <- read.table("/mnt/disks/datadisk1/gsbucket/geomx/ngs/data/complete_acquisition/WTA/Custom_PDAC_ssGSEA_results_Updated.csv",header=TRUE,sep=",", check.names = FALSE)
+## row.names(ssgsea_df) <- ssgsea_df[,1]
+## ssgsea_df <- ssgsea_df[, -1]
+ssgsea_df <- as.data.frame(readRDS("/mnt/disks/datadisk1/gsbucket/geomx/ngs/data/complete_acquisition/WTA/ssGSEA_detrendApproach21-6-2.RDS"))
+
+
+malignant_lineage_programs <- c("Neuroendocrine-like", "Classical-like", "Acinar-like", "Neuronal-like", "Basaloid", "Squamoid", "Mesenchymal")
+malignant_lineage_program_names <- lapply(malignant_lineage_programs, FUN = function(x) paste("Malignant", x, sep = "_"))
+malignant_scores <- ssgsea_df[row.names(ssgsea_df) %in% malignant_lineage_program_names, ]
+malignant_scores  <- get_program_target_scores(malignant_scores, "Epithelial")
+
+fibroblast_scores <- ssgsea_df[grepl("CAF" ,row.names(ssgsea_df)),]
+fibroblast_scores <- get_program_target_scores(fibroblast_scores, "CAF")
+```
+
+* Correlation between malignant program scores and immune cell type proportions across ROIs
+```{r immune-celltype-proportion-vs-malignant-program-score-corelation-plot}
+common_rois_immune_malignant <- intersect(colnames(malignant_scores),
+                                          colnames(segment_immune_celltype_counts))
+cor_immune_malignant_seg <- cor(t(as.matrix(segment_immune_celltype_counts[,common_rois_immune_malignant] )),
+                         t(malignant_scores[,common_rois_immune_malignant]), method = "spearman")
+plt<-pheatmap(cor_immune_malignant_seg, main="Correlation", cellwidth=30, cellheight=30, display_numbers = T )
+plt$gtable
+```
+
+* Correlation between CAF program scores and immune cell type proportions across ROIs
+```{r immune-celltype-proportion-vs-CAF-program-score-corelation-plot}
+common_rois_immune_fibroblast<- intersect(colnames(fibroblast_scores),
+                                          colnames(segment_immune_celltype_counts)  )
+cor_immune_CAF_seg <- cor(t(as.matrix(segment_immune_celltype_counts[, common_rois_immune_fibroblast])),
+                   t(fibroblast_scores[,common_rois_immune_fibroblast]), method = "spearman")
+plt<-pheatmap(cor_immune_CAF_seg, main="Correlation",cellwidth=30, cellheight=30, display_numbers = T)
+plt$gtable
+```
+
+* Malignant vs. CAF program score correlations across ROIs
+```{r malignant-vs-CAF-program-score-correlation-plot}
+common_rois_malignant_fibroblast <- intersect(
+  colnames(fibroblast_scores),
+  colnames(malignant_scores)
+)
+cor_Malignant_CAF_seg <- cor(t(malignant_scores[,common_rois_malignant_fibroblast]),
+  t(fibroblast_scores[, common_rois_malignant_fibroblast]),
+  method = "spearman"
+)
+plt<-pheatmap(cor_Malignant_CAF_seg, main="Correlation",cellwidth=30, cellheight=30, display_numbers = T)
+plt$gtable
+```
+
+## Immune cell type proportion fold-change across program scores
+Immune cell type proportion fold-changes (and significance) as a function of malignant (CAF) program score.
+
+### Fold-changes
+```{r immune-celltype-fold-change}
+## plot heatmaps of program scores high/low quantile vs. immune celltype proportion in WTA
+plotHighLow_immuneprop <- function(low_q=0.1, high_q=0.9, segment_immune_celltype_counts, program_scores, program_name){
+
+  plot_list = list()
+  #segment_immune_celltype_counts2 <- apply(segment_immune_celltype_counts[immune_celltypes,],2,function(x) {x/sum(x)})
+
+  seg_imm_ctype_cnts <- as.data.frame(t(segment_immune_celltype_counts)) %>%
+    rownames_to_column(var="Segment_ID_roi")# %>%
+                                        # as.tibble() %>%
+                                        # select(all_of(immune_celltypes)) %>%
+                                        #rowid_to_column()
+                                        #rownames_to_column()
+
+  res <-as.data.frame(t(program_scores)) %>%
+    rownames_to_column(var="Segment_ID_roi") %>%
+                                        #as.tibble() %>%
+                                        #rowid_to_column()%>%
+    inner_join(seg_imm_ctype_cnts, by="Segment_ID_roi") %>%
+    gather(colname, value, row.names(program_scores)) %>%
+    group_by(colname) %>%
+    mutate(lowthreshold = quantile(value,low_q), highthreshold = quantile(value,high_q))
+
+  print(dim(res))
+
+  low_heatmap <-res %>%
+    filter(value <= lowthreshold) %>%
+    summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+    column_to_rownames(var="colname") %>%
+    as.matrix() %>%
+    t()
+  plot_list[['low']]<- pheatmap(low_heatmap, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("bottom %.1f%% %s programs", low_q*100, program_name))[[4]]
+
+  high_heatmap <-res %>%
+    filter(value >= highthreshold) %>%
+    summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+    column_to_rownames(var="colname") %>%
+    as.matrix() %>%
+    t()
+
+  plot_list[['high']]<- pheatmap(high_heatmap, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("top %.1f%% %s programs",high_q*100, program_name))[[4]]
+                                        #low_proportion_cells <- (low_heatmap < 0.001) | (high_heatmap < 0.001)
+  print(min(high_heatmap))
+  print(min(low_heatmap))
+  high_heatmap <- high_heatmap + 1e-3
+  low_heatmap <- low_heatmap + 1e-3
+  FC <- foldchange(high_heatmap, low_heatmap)
+  #FC[low_proportion_cells] <- 0
+  print(FC)
+                                        #logFC[is.infinite(logFC)] <-0
+
+  plot_list[['FC']]<- pheatmap(FC, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("FC %s programs, low_q=%.1f%%, high_q=%.1f%%", program_name, low_q*100,high_q*100))[[4]]
+  plt <-grid.arrange(grobs=plot_list, nrow=1,ncol=3)
+  return(list("FC"=FC, "plt"=plt))
+}
+
+#Malignant program scores vs immune celltypes
+#malignant_lineage_programs <- c("Neuroendocrine-like", "Classical-like", "Acinar-like", "Neuronal-like", "Basaloid", "Squamoid","Mesenchymal")
+#fc_malignant_0p1 <- plotHighLow_immuneprop(0.1,0.9, segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], "malignant")
+#fc_malignant_0p25 <-plotHighLow_immuneprop(0.25,0.75, segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], "malignant")
+```
+
+* Immune cell type proportion fold-changes for malignant program scores in the top/bottom 10%
+```{r fold-change-malignant-plot-10p}
+fc_malignant_0p1 <- plotHighLow_immuneprop(0.1, 0.9, segment_immune_celltype_counts, malignant_scores, "malignant")
+fc_malignant_0p1$plt
+```
+
+* Malignant program scores in top/bottom 25%
+```{r fold-change-malignant-plot-25p}
+fc_malignant_0p25 <- plotHighLow_immuneprop(0.25, 0.75, segment_immune_celltype_counts, malignant_scores, "malignant")
+fc_malignant_0p25$plt
+```
+
+* Immune cell type proportion fold-changes for CAF program scores in the top/bottom 10%
+```{r fold-change-fibroblast-plot-10p}
+fc_fibro_0p1 <- plotHighLow_immuneprop(0.1,0.9, segment_immune_celltype_counts, fibroblast_scores, "fibroblast")
+fc_fibro_0p1$plt
+```
+
+* CAF program scores in top/bottom 25%
+```{r fold-change-fibroblast-plot-25p}
+fc_fibro_0p25 <- plotHighLow_immuneprop(0.25,0.75, segment_immune_celltype_counts, fibroblast_scores, "fibroblast")
+fc_fibro_0p25$plt
+```
+
+### Significance
+Fold-change significance for each program <-> cell type pair.
+
+* The formula used is `r format(formula(prop ~ 0 + group + (1 | patient_id) + offset(avg_low_qntl_ctype_prop)))`:
+```{r fold-change-significances}
+fc_significance <- function (immune_celltype_props, program_scores, low_q, high_q) {
+
+  immune_celltype_props <- apply(immune_celltype_props[immune_celltypes, ], 2, function(x) { x / sum(x)})
+
+  imm_ctype_props <- as.data.frame(t(immune_celltype_props)) %>%
+    rownames_to_column(var = "Segment_ID_roi")
+
+  res <- as.data.frame(t(program_scores)) %>%
+    rownames_to_column(var = "Segment_ID_roi") %>%
+    inner_join(imm_ctype_props, by = "Segment_ID_roi") %>%
+    gather(program, score, row.names(program_scores)) %>%
+    group_by(program) %>%
+    mutate(lowthreshold = quantile(score, low_q), highthreshold = quantile(score, high_q)) %>%
+    ungroup()
+
+  programs <- levels(factor(res$program))
+  sig_mtx <-matrix(0, nrow=length(programs), ncol = length(immune_celltypes))
+  row.names(sig_mtx) <- programs
+  colnames(sig_mtx) <- immune_celltypes
+  for (prog in programs) {
+    for (ctype in immune_celltypes) {
+      print(sprintf("%s <-> %s...",prog, ctype))
+      fc_data <- res %>%
+        filter(program == prog) %>%
+        ungroup() %>%
+        transmute(patient_id = factor(str_extract(Segment_ID_roi, "^MGH\\d+")), prop = !!sym(ctype), score = score, group = factor(case_when(
+                                                                                                           score <= lowthreshold ~ "low",
+                                                                                                           score >= highthreshold ~ "high",
+                                                                                                           TRUE ~ "middle"
+                                                                                                         ))) %>%
+        mutate(avg_low_qntl_ctype_prop = mean(prop[group == "low"])) %>%
+        filter(group != "middle") %>%
+        ## transmute(patient_id = factor(str_extract(Segment_ID_roi, "^MGH\\d+")), prop = !!sym(ctype), score = score, group = case_when(
+        ##                                                                                                    score <= lowthreshold ~ 0,
+        ##                                                                                                    score >= highthreshold ~ 1,
+        ##                                                                                                    TRUE ~ 2
+        ##                                                                                                  )) %>%
+        ## mutate(avg_low_qntl_ctype_prop = mean(prop[group == 0])) %>%
+        ## filter(group != 2) %>%
+        droplevels()
+      control <- lmerControl(calc.derivs = TRUE, check.rankX = "silent.drop.cols", check.conv.singular = .makeCC(action = "ignore", tol = 1e-4) )
+      fc_1mer <- lmer(prop ~ 0 + group + (1 | patient_id) + offset(avg_low_qntl_ctype_prop), data = fc_data, control = control, contrasts = list(group = "contr.treatment"))
+
+      #fc_1mer <- lmer(prop ~ 1 + group + (1 | patient_id), data = fc_data, control = control, contrasts = list(group = "contr.sum"))
+      #model.matrix.default()
+      anv <- anova(fc_1mer, type = "II")
+      print(anv)
+
+      print(summary(fc_1mer))
+      print(model.matrix(fc_1mer))
+      sig_mtx[prog, ctype] <- coef(summary(fc_1mer))["grouphigh", "Pr(>|t|)"]
+      ## sig_mtx[prog, ctype] <- anv["group", "Pr(>F)"]
+    }
+  }
+
+  return(sig_mtx)
+}
+
+#sig_mtx_malignant_0p1 <- fc_significance(segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], 0.1, 0.9)
+#sig_mtx_malignant_0p25 <- fc_significance(segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], 0.25, 0.75)
+
+```
+
+* Malignant FC significance at top/bottom 10% percentile of program scores
+```{r FC-significance-plot-malignant-10p, fig.width = 16}
+sig_mtx_malignant_0p1 <- fc_significance(segment_immune_celltype_counts, malignant_scores, 0.1, 0.9)
+col <- colorRampPalette(c("blue","white","red"))
+corrplot(fc_malignant_0p1$FC, title = "FC (Q0.1) Significance", is.corr = F, p.mat = t(sig_mtx_malignant_0p1), method = c("color"), col = col(200), sig.level = c(0.001, 0.01, 0.05), insig = "label_sig", tl.col = ("black"))
+```
+
+* Malignant FC significance at top/bottom 25% percentile
+```{r FC-significance-plot-malignant-25p, fig.width=16}
+sig_mtx_malignant_0p25 <- fc_significance(segment_immune_celltype_counts, malignant_scores, 0.25, 0.75)
+corrplot(fc_malignant_0p25$FC, title="FC (Q0.25) Significance", is.corr = F, p.mat=t(sig_mtx_malignant_0p25), method=c("color"), col=col(200), sig.level = c(0.001, 0.01,0.05), insig="label_sig", tl.col=("black") )
+```
+
+* Fibroblast FC significance at top/bottom 10% percentile of program scores
+```{r FC-significance-plot-fibroblast-10p, fig.width=16}
+sig_mtx_fibro_0p1 <- fc_significance(segment_immune_celltype_counts, fibroblast_scores, 0.1, 0.9)
+corrplot(fc_fibro_0p1$FC, title="FC (Q0.1) Significance", is.corr = F, p.mat=t(sig_mtx_fibro_0p1), method=c("color"), col=col(200), sig.level = c(0.001, 0.01,0.05), insig="label_sig", tl.col=("black") )
+```
+
+* Fibroblast FC significance at top/bottom 25% percentile
+```{r FC-significance-plot-fibroblast-25p, fig.width=16}
+sig_mtx_fibro_0p25 <- fc_significance(segment_immune_celltype_counts, fibroblast_scores, 0.25, 0.75)
+corrplot(fc_fibro_0p25$FC, title = "FC (Q0.25) Significance", is.corr = F, p.mat=t(sig_mtx_fibro_0p25), method=c("color"), col=col(200), sig.level = c(0.001, 0.01,0.05), insig="label_sig", tl.col=("black") )
+```
+
+## Regression Analysis of immune cell type proportion changes
+Program score covariate significance for each program <-> cell type pair.
+
+* The model is defined as `r format(formula(prop ~ 1 + score + (1 | patient_id)))`:
+
+```{r regression-analysis}
+prog_scr_significance <- function (immune_celltype_props, program_scores) {
+  immune_celltype_props <- apply(immune_celltype_props[immune_celltypes, ], 2, function(x) { x / sum(x)})
+
+  imm_ctype_props <- as.data.frame(t(immune_celltype_props)) %>%
+    rownames_to_column(var = "Segment_ID_roi")
+
+  res <- as.data.frame(t(program_scores)) %>%
+    rownames_to_column(var = "Segment_ID_roi") %>%
+    inner_join(imm_ctype_props, by = "Segment_ID_roi") %>%
+    gather(program, score, row.names(program_scores)) %>%
+    ungroup()
+
+  programs <- levels(factor(res$program))
+  sig_mtx <-matrix(0, nrow=length(programs), ncol = length(immune_celltypes))
+  row.names(sig_mtx) <- programs
+  colnames(sig_mtx) <- immune_celltypes
+
+  corr_mtx <-matrix(0, nrow=length(programs), ncol = length(immune_celltypes))
+  row.names(corr_mtx) <- programs
+  colnames(corr_mtx) <- immune_celltypes
+  for (prog in programs){
+    for (ctype in immune_celltypes){
+      reg_data <- res %>%
+        filter(program == prog) %>%
+        ungroup() %>%
+        transmute(patient_id = factor(str_extract(Segment_ID_roi, "^MGH\\d+")), prop = !!sym(ctype), score = score) %>%
+        droplevels()
+
+      #print(reg_data)
+      control <- lmerControl(calc.derivs = TRUE, check.rankX = "silent.drop.cols", check.conv.singular = .makeCC(action = "ignore", tol = 1e-4) )
+      reg_1mer <- lmer(prop ~ 1 + score + (1 | patient_id), data = reg_data, control = control)
+
+      anv <- anova(reg_1mer, type = "II")
+      print(anv)
+
+      print(summary(reg_1mer))
+      print(model.matrix(reg_1mer))
+      sig_mtx[prog, ctype] <- anv["score", "Pr(>F)"]
+      print(cor(reg_data %>% select(prop,score), method = "spearman"))
+      corr_mtx[prog,ctype] <- cor(reg_data %>% select(prop,score), method = "spearman")[1,2]
+    }
+  }
+  return(list("sig" = sig_mtx, "corr" = corr_mtx))
+}
+## # reg_sig_mtx_malignant<-prog_scr_significance(segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,])
+```
+
+* Malignant program regression analysis
+```{r regression-analysis-plot-significance-malignant}
+reg_sig_mtx_malignant <- prog_scr_significance(segment_immune_celltype_counts, malignant_scores)
+lol <- colorRampPalette(c("blue","white","red"))
+corrplot(t(reg_sig_mtx_malignant$corr), title = "Regression Analysis Significance (Color=Corr)", is.corr = F, p.mat = t(reg_sig_mtx_malignant$sig), method = c("circle"), col = col(200), sig.level = c(0.001, 0.01, 0.05), insig = "label_sig", tl.col = ("black"), size_vector = (1 - as.numeric(t(reg_sig_mtx_malignant$sig)^(1 / 3))))
+```
+
+* Fibroblast program regression analysis
+```{r regression-analysis-plot-significance-fibroblast}
+reg_sig_mtx_fibro<-prog_scr_significance(segment_immune_celltype_counts, fibroblast_scores)
+corrplot(t(reg_sig_mtx_fibro$corr), title="Regression Analysis Significance (Color=Corr)",is.corr = F, p.mat=t(reg_sig_mtx_fibro$sig), method=c("circle"), col=col(200), sig.level = c(0.001, 0.01,0.05), insig="label_sig", tl.col=("black"), size_vector = (1-as.numeric(t(reg_sig_mtx_fibro$sig)^(1/3)))  )
+```
+### Immune Area Proportion vs Program Score
+
+```{r segment-percent-area, fig.width=24, fig.height=12}
+plotHighLow_area_prop<- function(low_q=0.1, high_q=0.9, segment_immune_celltype_area_prop, program_scores, program_name){
+
+  plot_list = list()
+
+  seg_imm_ctype_cnts <- as.data.frame(t(segment_immune_celltype_area_prop)) %>%
+    rownames_to_column(var="Segment_ID_roi")# %>%
+                                        # as.tibble() %>%
+                                        # select(all_of(immune_celltypes)) %>%
+                                        #rowid_to_column()
+                                        #rownames_to_column()
+  print(head(seg_imm_ctype_cnts))
+
+  res <-as.data.frame(t(program_scores)) %>%
+    rownames_to_column(var="Segment_ID_roi") %>%
+                                        #as.tibble() %>%
+                                        #rowid_to_column()%>%
+    inner_join(seg_imm_ctype_cnts, by="Segment_ID_roi") %>%
+    gather(program, score, row.names(program_scores)) %>%
+    group_by(program) %>%
+    mutate(lowthreshold = quantile(score,low_q), highthreshold = quantile(score,high_q))
+
+   print(dim(res))
+   print(head(res), width =Inf)
+
+  area_vs_score_df <-res %>%
+    mutate(highlow = ifelse(score<=lowthreshold, "low","high")) %>%
+    filter((score<= lowthreshold) | (score>= highthreshold)) %>%
+    pivot_longer(cols=row.names(segment_immune_celltype_area_prop), names_repair = "unique", names_to = "celltype", values_to="areaprop") %>%
+    ungroup()
+    #summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+    #column_to_rownames(var="colname")# %>%
+    #as.matrix() %>%
+    #t()
+
+  print(head(area_vs_score_df), width=Inf)
+  means <-  area_vs_score_df %>%
+    group_by(program,celltype, highlow) %>%
+    summarise(mareaprop=mean(areaprop)) %>%
+    ungroup()
+
+  plt <-area_vs_score_df %>%
+    ggplot(aes(x=highlow,y=areaprop,fill=highlow)) +
+    geom_boxplot() +
+    #stat_summary(fun=mean, geom="point", shape=20, size=4, color="red", fill="red")+
+    geom_point(data=means, aes(y=mareaprop), shape=20, size=4, color="red", fill="red") +
+    geom_text(data = means, aes(label=round(mareaprop, digits=3),y = mareaprop), size=6, col="black",vjust=-1.5 ) +
+    scale_y_log10() +
+    # stat_summary(fun=mean, geom="text", aes(label = round(..y.., digits=3)), size = 6, col="black",vjust=-1.5) +
+    facet_grid(program ~celltype ) +
+    labs(x="High  (top-25%) vs. Low (bottom-25%) of Program Scores",
+         y = paste("Proportion of Immune Nuclei per", program_name ,"Nuclei"))
+
+
+  programs <- levels(factor(res$program))
+  sig_mtx <-matrix(0, nrow=length(programs), ncol = length(immune_celltypes))
+  row.names(sig_mtx) <- programs
+  colnames(sig_mtx) <- immune_celltypes
+  for (prog in programs) {
+    for (ctype in immune_celltypes) {
+      print(sprintf("%s <-> %s...",prog, ctype))
+      fc_data <- res %>%
+        filter(program == prog) %>%
+        ungroup() %>%
+        transmute(patient_id = factor(str_extract(Segment_ID_roi, "^MGH\\d+")), prop = !!sym(ctype), score = score, group = factor(case_when(
+                                                                                                           score <= lowthreshold ~ "low",
+                                                                                                           score >= highthreshold ~ "high",
+                                                                                                           TRUE ~ "middle"
+                                                                                                         ))) %>%
+        mutate(avg_low_qntl_ctype_prop = mean(prop[group == "low"])) %>%
+        filter(group != "middle") %>%
+        droplevels()
+
+      control <- lmerControl(calc.derivs = TRUE, check.rankX = "silent.drop.cols", check.conv.singular = .makeCC(action = "ignore", tol = 1e-4))
+      fc_1mer <- lmer(prop ~ 0 + group + (1 | patient_id) + offset(avg_low_qntl_ctype_prop), data = fc_data, control = control, contrasts = list(group = "contr.treatment"))
+
+      ##fc_1mer <- lmer(prop ~ 0 + group + (1 | patient_id), data = fc_data, control = control, contrasts = list(group = "contr.treatment"))
+                                        # model.matrix.default()
+      anv <- anova(fc_1mer, type = "II")
+      print(anv)
+
+      print(summary(fc_1mer))
+      print(model.matrix(fc_1mer))
+      sig_mtx[prog, ctype] <- coef(summary(fc_1mer))["grouphigh", "Pr(>|t|)"]
+    }
+  }
+
+  low_heatmap <-res %>%
+    filter(score <= lowthreshold) %>%
+    summarise_at(row.names(segment_immune_celltype_area_prop), mean) %>%
+    column_to_rownames(var="program") %>%
+    as.matrix() %>%
+    t()
+
+  low_heatmap_2 <- area_vs_score_df %>%
+    filter(score <= lowthreshold) %>%
+    group_by(program, celltype) %>%
+    summarise(lhm = mean(areaprop)) %>%
+    ungroup()
+
+  high_heatmap <-res %>%
+    filter(score >= highthreshold) %>%
+    summarise_at(row.names(segment_immune_celltype_area_prop), mean) %>%
+    column_to_rownames(var="program") %>%
+    as.matrix() %>%
+    t()
+
+  high_heatmap_2 <- area_vs_score_df %>%
+    filter(score >= highthreshold) %>%
+    group_by(program, celltype) %>%
+    summarise(lhm = mean(areaprop)) %>%
+    ungroup()
+
+  high_heatmap <- high_heatmap + 1e-3
+  low_heatmap <- low_heatmap + 1e-3
+  FC <- foldchange(high_heatmap, low_heatmap)
+  ## plot_list[['low']]<- pheatmap(low_heatmap, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("bottom %.1f%% %s programs", low_q*100, program_name))[[4]]
+
+##   high_heatmap <-res %>%
+##     filter(value >= highthreshold) %>%
+##     summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+##     column_to_rownames(var="colname") %>%
+##     as.matrix() %>%
+##     t()
+
+##   plot_list[['high']]<- pheatmap(high_heatmap, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("top %.1f%% %s programs",high_q*100, program_name))[[4]]
+##                                         #low_proportion_cells <- (low_heatmap < 0.001) | (high_heatmap < 0.001)
+##   print(min(high_heatmap))
+##   print(min(low_heatmap))
+##   high_heatmap <- high_heatmap + 1e-3
+##   low_heatmap <- low_heatmap + 1e-3
+##   FC <- foldchange(high_heatmap, low_heatmap)
+##   #FC[low_proportion_cells] <- 0
+##   print(FC)
+##                                         #logFC[is.infinite(logFC)] <-0
+
+##   plot_list[['FC']]<- pheatmap(FC, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("FC %s programs, low_q=%.1f%%, high_q=%.1f%%", program_name, low_q*100,high_q*100))[[4]]
+##   plt <-grid.arrange(grobs=plot_list, nrow=1,ncol=3)
+##   return(list("FC"=FC, "plt"=plt))
+  return(list("plt"=plt,"FC"=FC, "sig_mtx"=sig_mtx, "low_heatmap"=low_heatmap, "high_heatmap"=high_heatmap, "lh2" = low_heatmap_2, "hh2" = high_heatmap_2))
+}
+
+
+gat_area_immune <- as.data.frame(decon_prop_of_all) %>%
+  mutate(celltype = rownames(decon_prop_of_all)) %>%
+  gather(-celltype, key = "Sample_ID", value = "count") %>%
+  inner_join(select(dfs[[3]], "Sample_ID", "Scan_name", "ROI_number", "Segment", "ROI_mask_area","AOI_area"), by = "Sample_ID") %>%
+  filter(Segment == "Immune") %>%
+  mutate(area_prop = count * AOI_area, scan_roi = paste(Scan_name,ROI_number,sep="_")) %>%
+  select(-Segment) %>%
+  ungroup()
+
+gat_area_epithelial <- dfs[[3]] %>%
+  select("Sample_ID", "Scan_name", "ROI_number", "Segment", "AOI_area") %>%
+  filter(Segment == "Epithelial") %>%
+  mutate(scan_roi = paste(Scan_name,ROI_number,sep="_"), epi_area = AOI_area)
+
+segment_immune_celltype_area_prop_epithelial <- gat_area_immune %>%
+  inner_join(gat_area_epithelial, by = "scan_roi") %>%
+  mutate(area_prop_epi = area_prop / epi_area ) %>%
+  pivot_wider(id_cols = c(scan_roi,celltype), names_from = scan_roi, values_from = area_prop_epi)
+
+segment_immune_celltype_area_prop_epithelial <- as.data.frame(segment_immune_celltype_area_prop_epithelial) %>%
+  column_to_rownames(var = "celltype")
+
+plt <-plotHighLow_area_prop(low_q=0.25, high_q = 0.75, segment_immune_celltype_area_prop = segment_immune_celltype_area_prop_epithelial, program_scores = malignant_scores, "Epithelial")
+##plt
+plt$plt
+rc1 <- colorRampPalette(c("blue", "white"))(200)
+rc2 <- colorRampPalette(c("white", "red"))(round(-max(plt$FC) / min(plt$FC) * 200))
+rcs <- c(rc1, rc2)
+corrplot(plt$FC, title = "Significance (Q0.25) ", is.corr = F, p.mat = t(plt$sig_mtx), method = c("color"), col = rcs, sig.level = c(0.001, 0.01, 0.05), insig = "label_sig", tl.col = ("black"), cl.align.text = "r", cl.cex = 1.2, cl.ratio = 0.2, cl.offset = 0)
+
+gat_area_CAF<- dfs[[3]] %>%
+  select("Sample_ID", "Scan_name", "ROI_number", "Segment", "AOI_area") %>%
+  filter(Segment == "CAF") %>%
+  mutate(scan_roi = paste(Scan_name, ROI_number, sep = "_"), epi_area = AOI_area)
+
+segment_immune_celltype_area_prop_CAF <- gat_area_immune %>%
+  inner_join(gat_area_CAF, by = "scan_roi") %>%
+  mutate(area_prop_epi = area_prop / epi_area) %>%
+  pivot_wider(id_cols = c(scan_roi, celltype), names_from = scan_roi, values_from = area_prop_epi)
+
+segment_immune_celltype_area_prop_CAF<- as.data.frame(segment_immune_celltype_area_prop_CAF) %>%
+  column_to_rownames(var = "celltype")
+plt <- plotHighLow_area_prop(low_q = 0.25, high_q = 0.75, segment_immune_celltype_area_prop = segment_immune_celltype_area_prop_CAF, program_scores = fibroblast_scores, "Fibroblast")
+plt$plt
+X11()
+col <- colorRampPalette(c("blue", "white", "red"))
+rc1 = colorRampPalette(c("blue", "white"))(200)
+rc2 = colorRampPalette(c("white", "red"))(round(-max(plt$FC) / min(plt$FC) * 200))
+rcs = c(rc1, rc2)
+corrplot(plt$FC, title = "Significance (Q0.25)", is.corr = F, p.mat = t(plt$sig_mtx), method = c("color"), col = rcs, sig.level = c(0.001, 0.01, 0.05), insig = "label_sig", tl.col = ("black"), cl.align.text = "r", cl.cex = 1.2, cl.ratio = 0.3,cl.offset = -0.25)
+```
+
+### 3-way associations fold-change
+```{r immune-celltype-fold-change}
+## plot heatmaps of program scores high/low quantile vs. immune celltype proportion in WTA
+plotHighLow_3way_immuneprop <- function(low_q=0.1, high_q=0.9, segment_immune_celltype_counts, malignant_scores, caf_scores){
+
+
+  compute_fold_change <- function(from, to) {
+    from_m <- from[1]
+    from_f <- from[2]
+    to_m <- to[1]
+    to_f <- to[2]
+
+    print(c(from_m, from_f, to_m, to_f))
+    plot_list = list()
+                                        #segment_immune_celltype_counts2 <- apply(segment_immune_celltype_counts[immune_celltypes,],2,function(x) {x/sum(x)})
+
+    seg_imm_ctype_cnts <- as.data.frame(t(segment_immune_celltype_counts)) %>%
+      rownames_to_column(var="Segment_ID_roi")
+
+    caf_program_names <- row.names(caf_scores)
+    caf_program_scores <- as.data.frame(t(caf_scores)) %>%
+      rownames_to_column(var="Segment_ID_roi")
+
+    res <-as.data.frame(t(malignant_scores)) %>%
+      rownames_to_column(var="Segment_ID_roi") %>%
+      inner_join(seg_imm_ctype_cnts, by="Segment_ID_roi") %>%
+      gather(m_colname, m_value, row.names(malignant_scores)) %>%
+      group_by(m_colname) %>%
+      mutate(m_lowthreshold = quantile(m_value,low_q), m_highthreshold = quantile(m_value,high_q)) %>%
+      ungroup() %>%
+      inner_join(caf_program_scores, by="Segment_ID_roi") %>%
+      gather(c_colname, c_value, all_of(caf_program_names)) %>%
+      group_by(c_colname) %>%
+      mutate(c_lowthreshold = quantile(c_value, low_q), c_highthreshold = quantile(c_value, high_q)) %>%
+      ungroup() %>%
+      unite(malignant_caf_name,c("m_colname","c_colname")) %>%
+      group_by(malignant_caf_name)
+
+    #print(dim(res))
+
+    from_heatmap <-res %>%
+      filter((if(from_m == "L") m_value <= m_lowthreshold else m_value >= m_highthreshold) & (if(from_f == "L") c_value <= c_lowthreshold else c_value >= c_highthreshold) ) %>%
+      summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+      column_to_rownames(var="malignant_caf_name") %>%
+      as.matrix() %>%
+      t()
+
+    plot_list[['low']]<- pheatmap(from_heatmap, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("From %s %.1f%% of Malignant programs, %s %.1f%% of CAF programs", if(from_m == "L") "bottom" else "top", low_q*100, if(from_f =="L") "bottom" else "top", low_q*100))[[4]]
+
+    to_heatmap <-res %>%
+      filter((if(to_m == "L") m_value <= m_lowthreshold else m_value >= m_highthreshold) & (if(to_f == "L") c_value <= c_lowthreshold else c_value >= c_highthreshold) ) %>%
+      summarise_at(row.names(segment_immune_celltype_counts), mean) %>%
+      column_to_rownames(var="malignant_caf_name") %>%
+      as.matrix() %>%
+      t()
+    plot_list[["high"]] <- pheatmap(to_heatmap, display_numbers = T, cluster_cols = F, cellwidth = 30, cellheight = 30, silent = TRUE, main = sprintf("To %s %.1f%% of Malignant programs, %s %.1f%% of CAF programs", if (to_m == "L") "bottom" else "top", low_q * 100, if (to_f == "L") "bottom" else "top", low_q * 100))[[4]]
+                                        #low_proportion_cells <- (low_heatmap < 0.001) | (high_heatmap < 0.001)
+    from_heatmap <- from_heatmap + 1e-3
+    to_heatmap <- to_heatmap + 1e-3
+    print("computing fold-change")
+    print(dim(from_heatmap))
+    print(dim(to_heatmap))
+
+    if (ncol(to_heatmap) != ncol(from_heatmap)) {
+      print("Not all malignant/caf programs have interaction...")
+    }
+    common_columns <- intersect(colnames(to_heatmap),colnames(from_heatmap))
+    common_rows<- intersect(rownames(to_heatmap), rownames(from_heatmap))
+    print(length(common_columns))
+    print(dim(to_heatmap[,common_columns]))
+    FC <- foldchange(to_heatmap[common_rows,common_columns], from_heatmap[common_rows,common_columns])
+    print("done")
+                                        #FC[low_proportion_cells] <- 0
+                                        #logFC[is.infinite(logFC)] <-0
+
+    plot_list[['FC']]<- pheatmap(FC, display_numbers = T, cluster_cols = F, cellwidth=30, cellheight=30, silent=TRUE, main=sprintf("FC (m=%s, f=%s) -> (m=%s, f=%s)" , from_m, from_f, to_m, to_f))[[4]]
+    plt <-grid.arrange(grobs=plot_list, nrow=2,ncol=2)
+    return(list("FC"=FC, "plt"=plt))
+  }
+
+  mapping <- list(
+    list(c("L", "L"), c("H", "L")),
+    list(c("L", "L"), c("L", "H")),
+    list(c("L", "L"), c("H", "H")),
+    list(c("L", "H"), c("H", "H")),
+    list(c("H", "L"), c("H", "H")),
+    list(c("L", "H"), c("H", "L"))
+  )
+  fold_change_results <- list()
+  i <- 1
+  for (m in mapping) {
+    fold_change_results[[i]] <- compute_fold_change(from = m[[1]], to = m[[2]])
+    i <- i + 1
+  }
+  return(fold_change_results)
+}
+
+#Malignant program scores vs immune celltypes
+#malignant_lineage_programs <- c("Neuroendocrine-like", "Classical-like", "Acinar-like", "Neuronal-like", "Basaloid", "Squamoid","Mesenchymal")
+#fc_malignant_0p1 <- plotHighLow_immuneprop(0.1,0.9, segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], "malignant")
+#fc_malignant_0p25 <-plotHighLow_immuneprop(0.25,0.75, segment_immune_celltype_counts, malignant_scores[malignant_lineage_programs,], "malignant")
+```
+
+* Malignant + CAF program scores in top/bottom 25%
+There are 6 possible choices based on a 2x2 matrix of low/high program scores for malignant and CAF. They are,
+L_m L_f -> H_m L_f
+L_m L_f -> L_m H_f
+L_m L_f -> H_m H_f
+L_m H_f -> H_m H_f
+H_m L_f -> H_m H_f
+L_m H_f -> H_m L_f
+
+```{r fold-change-malignant-plot-25p}
+save_pheatmap_pdf <- function(plt, filename, width=7, height=7) {
+   stopifnot(!missing(plt))
+   stopifnot(!missing(filename))
+   pdf(filename, width=width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(plt)
+   dev.off()
+}
+fc_results_0p25 <- plotHighLow_3way_immuneprop(0.25, 0.75, segment_immune_celltype_counts, malignant_scores, fibroblast_scores)
+for (i in seq(1, length(fc_results_0p25))) {
+  print(i)
+  save_pheatmap_pdf(fc_results_0p25[[i]]$plt, sprintf("/mnt/disks/datadisk1/gsbucket/geomx/ngs/code/figure/fc_0p25_%d.pdf", i), 32, 24)
+}
+```
