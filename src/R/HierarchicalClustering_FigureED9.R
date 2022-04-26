@@ -2,7 +2,7 @@ library(pheatmap)
 library(scales)
 library(RColorBrewer)
 
-### EXTENDED DATA FIGURE 9B
+### UNSUPERVISED HIERARCHICAL CLUSTERING: EXTENDED DATA FIGURE 9B
 new_dfs <- readRDS('dfs_detrendApproach21-6-2.RDS')
 rownames(new_dfs[[5]]) <- new_dfs[[5]]$TargetName
 dfs <- readRDS('dfs_Q321-6.RDS')
