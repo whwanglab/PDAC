@@ -23,7 +23,7 @@ ssGSEA program scores can be found [here](https://github.com/whwanglab/PDAC/blob
 
 ### Receptor ligand analysis
 
-Known receptor-ligand pairs were obtained from [CellPhoneDB v2.0](https://github.com/Teichlab/cellphonedb) with potential receptor-ligand pairs quantified using the Spearman rank correlation between paired segments within the same ROI across all ROIs with said pairs. Interactions were calculated for non-self (juxtacrine) and self (autocrine) occurring within the same segment. Receptor-ligand interactions were calculated separately for untreated and CRT specimens to determine interactions that are differential between conditions. All analyses were two-sided and used a significant level of p-value $\leq 0.05$ and were adjusted for multiple testing where appropriate using the false discovery rate.
+Known receptor-ligand pairs were obtained from [CellPhoneDB v2.0](https://github.com/Teichlab/cellphonedb) with potential receptor-ligand pairs quantified using the Spearman rank correlation between paired segments within the same ROI across all ROIs with said pairs. Interactions were calculated for non-self (juxtacrine) and self (autocrine) occurring within the same segment. Receptor-ligand interactions were calculated separately for untreated and CRT specimens to determine interactions that are differential between conditions. All analyses were two-sided and used a significant level of p-value &gt; 0.05 and were adjusted for multiple testing where appropriate using the false discovery rate.
 
 Code for this analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/LigandReceptorAnalysis_Figure8.R).
 
