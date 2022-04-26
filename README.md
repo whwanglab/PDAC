@@ -4,7 +4,7 @@ Pancreatic ductal adenocarcinoma (PDAC) is a highly lethal and treatment-refract
 
 In this repository, we present the analysis conducted for the whole transcriptome DSP experiments. 
 
-Our Nature Genetics manuscript (in press) will be available soon. The preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.08.25.267336v1.full). Data can be found at GEO under accession number GSE199102. Code for the single-nucleus RNA-seq analysis can be found [here](https://github.com/karthikj89/humanpdac). 
+Our Nature Genetics manuscript (in press) will be available soon. The preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.08.25.267336v1.full). Raw and processed data can be found at GEO under accession number GSE199102. Code for the single-nucleus RNA-seq analysis can be found [here](https://github.com/karthikj89/humanpdac). 
 
 
 ## Data analysis
@@ -13,9 +13,13 @@ Our Nature Genetics manuscript (in press) will be available soon. The preprint c
 
 FASTQ files (uploaded to GEO) for DSP were aggregated into count matrices using the [azorius](https://github.com/whwanglab/PDAC/tree/main/src/R/azorius) and [hydra](https://github.com/whwanglab/PDAC/tree/main/src/R/hydra) pipeline. Normalized expression was [detrended](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R) to model cell-type specific expression. 
 
+Normalized data can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/dfs_Q321-6.RDS). Detrended data can be found at GEO under accession number GSE199102. In this repository, normalized and detrended data are referenced in analyses described below.
+
 ### Cell type deconvolution and program scoring
 
 Programs were scored for each DSP sample within each ROI using [ssGSEA](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R), which were transformed using the z-score. [Unsupervised hierarchical clustering](https://github.com/whwanglab/PDAC/blob/main/src/R/FigureED9.R) was performed on all features (malignant programs, CAF programs, deconvolved immune cell type proportions, compartment areas within ROI) using the Pearson correlation distance and average linkage. Code for the immune cell type deconvolution analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/CellTypeDeconvolution.Rmd).
+
+ssGSEA program scores can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/ssGSEA_detrendApproach21-6-2.RDS).
 
 ### Receptor ligand analysis
 
