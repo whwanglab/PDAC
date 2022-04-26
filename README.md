@@ -11,15 +11,15 @@ Our Nature Genetics manuscript (in press) will be available soon. The preprint c
 
 ### Data preprocessing
 
-FASTQ files (uploaded to GEO) for DSP were aggregated into count matrices using the azorius and hydra pipeline. Normalized expression was detrended to model cell-type specific expression. 
+FASTQ files (uploaded to GEO) for DSP were aggregated into count matrices using the [azorius](https://github.com/whwanglab/PDAC/tree/main/src/R/azorius) and [hydra](https://github.com/whwanglab/PDAC/tree/main/src/R/hydra) pipeline. Normalized expression was [detrended](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R) to model cell-type specific expression. 
 
+### Cell type deconvolution and program scoring
 
-### Program scoring and correlation analysis
-
-Programs were scored for each DSP sample within each ROI using single-sample gene set enrichment analysis (ssGSEA), which were transformed using the z-score. Unsupervised hierarchical clustering was performed on all features (malignant programs, CAF programs, deconvolved immune cell type proportions, compartment areas within ROI) using the Pearson correlation distance and average linkage. Cell deconvolution analysis was performed using the SpatialDecon v0.99.1 package (https://github.com/Nanostring-Biostats/SpatialDecon/). Analysis of expression or program scores used linear mixed effects models to control for multiple sampling within a slide, using Satterthwaite's approximation for degrees of freedom for p-value calculation. Correlation coefficients were calculated using the Spearman rank correlation.
-
+Programs were scored for each DSP sample within each ROI using [ssGSEA](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R), which were transformed using the z-score. [Unsupervised hierarchical clustering](https://github.com/whwanglab/PDAC/blob/main/src/R/FigureED9.R) was performed on all features (malignant programs, CAF programs, deconvolved immune cell type proportions, compartment areas within ROI) using the Pearson correlation distance and average linkage. Code for the immune cell type deconvolution analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/CellTypeDeconvolution.Rmd).
 
 ### Receptor ligand analysis
 
-Known receptor-ligand pairs were obtained from CellPhoneDB v2.0 with potential receptor-ligand pairs quantified using the Spearman rank correlation between paired segments within the same ROI across all ROIs with said pairs. Interactions were calculated for non-self (juxtacrine) and self (autocrine) occurring within the same segment. Receptor-ligand interactions were calculated separately for untreated and CRT specimens to determine interactions that are differential between conditions. All analyses were two-sided and used a significant level of p-value ≤ 0.05 and were adjusted for multiple testing where appropriate using the false discovery rate.
+Known receptor-ligand pairs were obtained from [CellPhoneDB v2.0](https://github.com/Teichlab/cellphonedb) with potential receptor-ligand pairs quantified using the Spearman rank correlation between paired segments within the same ROI across all ROIs with said pairs. Interactions were calculated for non-self (juxtacrine) and self (autocrine) occurring within the same segment. Receptor-ligand interactions were calculated separately for untreated and CRT specimens to determine interactions that are differential between conditions. All analyses were two-sided and used a significant level of p-value $\leq 0.05$ and were adjusted for multiple testing where appropriate using the false discovery rate.
+
+Code for this analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/LigandReceptorAnalysis_Figure8.R).
 
