@@ -3,7 +3,7 @@ library(ggplot2)
 library(ggsci)
 library(lmerTest)
 
-### FIGURE 7A AND 7B
+### TREATMENT-ENRICHMENT PROGRAM ANALYSIS: FIGURE 7A AND 7B
 new_dfs <- readRDS('dfs_detrendApproach21-6-2.RDS')
 ssGSEA_detrend <- readRDS('ssGSEA_detrendApproach21-6-2.RDS')
 
