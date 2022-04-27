@@ -11,7 +11,7 @@ Our Nature Genetics manuscript (in press) will be available soon. The preprint c
 
 ### Data preprocessing
 
-FASTQ files (uploaded to GEO) for DSP were aggregated into count matrices using the [azorius](https://github.com/whwanglab/PDAC/tree/main/src/R/azorius) and [hydra](https://github.com/whwanglab/PDAC/tree/main/src/R/hydra) pipeline. Normalized expression was [detrended](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R) to model cell-type specific expression. 
+FASTQ files for DSP were aggregated into count matrices using the [azorius](https://github.com/whwanglab/PDAC/tree/main/src/R/azorius) and [hydra](https://github.com/whwanglab/PDAC/tree/main/src/R/hydra) pipeline. Normalized expression was [detrended](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R) to model cell-type specific expression. 
 
 Normalized data can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/dfs_Q321-6.RDS). Detrended data can be found at GEO under accession number GSE199102. In this repository, normalized and detrended data are referenced in analyses described below.
 
