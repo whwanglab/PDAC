@@ -17,9 +17,14 @@ Normalized data can be found [here](https://github.com/whwanglab/PDAC/blob/main/
 
 ### Cell type deconvolution and program scoring
 
-Programs were scored for each DSP sample within each ROI using [ssGSEA](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R), which were transformed using the z-score. [Unsupervised hierarchical clustering](https://github.com/whwanglab/PDAC/blob/main/src/R/FigureED9.R) was performed on all features (malignant programs, CAF programs, deconvolved immune cell type proportions, compartment areas within ROI) using the Pearson correlation distance and average linkage. Code for the immune cell type deconvolution analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/CellTypeDeconvolution.Rmd).
+Programs were scored for each DSP sample within each ROI using [ssGSEA](https://github.com/whwanglab/PDAC/blob/main/src/R/Detrending_and_ssGSEA.R), which were transformed using the z-score. 
+
+For each program, intra-patient dispersion of program expression across ROIs was calculated as the patient-level mean of the interquartile range (IQR) across all ROIs within each individual tumor. In contrast, inter-patient dispersion of program expression was computed as the IQR of the mean program score for each tumor. Code for this analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/IntraVsInter_Figure6.R).
+
+[Unsupervised hierarchical clustering](https://github.com/whwanglab/PDAC/blob/main/src/R/FigureED9.R) was performed on all features (malignant programs, CAF programs, deconvolved immune cell type proportions, compartment areas within ROI) using the Pearson correlation distance and average linkage. Code for the immune cell type deconvolution analysis can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/CellTypeDeconvolution.Rmd).
 
 ssGSEA program scores can be found [here](https://github.com/whwanglab/PDAC/blob/main/src/R/ssGSEA_detrendApproach21-6-2.RDS).
+
 
 ### Receptor ligand analysis
 
