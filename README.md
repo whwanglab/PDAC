@@ -4,7 +4,7 @@ Pancreatic ductal adenocarcinoma (PDAC) is a highly lethal and treatment-refract
 
 In this repository, we present the analysis conducted for the whole transcriptome DSP experiments. 
 
-Our Nature Genetics manuscript (in press) will be available soon. The preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.08.25.267336v1.full). Raw and processed data can be found at GEO under accession number GSE199102. Code for the single-nucleus RNA-seq analysis can be found [here](https://github.com/karthikj89/humanpdac). 
+Our manuscript (in press at Nature Genetics) will be available soon. The preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.08.25.267336v1.full). Raw and processed data can be found at GEO under accession number GSE199102. Code for the single-nucleus RNA-seq analysis can be found [here](https://github.com/karthikj89/humanpdac). 
 
 
 ## Data analysis
